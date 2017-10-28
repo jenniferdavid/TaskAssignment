@@ -1,0 +1,1 @@
+/usr/bin/c++   -g   CMakeFiles/potts_spin.dir/potts_spin.cpp.o  -o potts_spin -rdynamic 

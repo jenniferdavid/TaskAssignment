@@ -1,0 +1,3 @@
+/home/jendav/Thesis/Thesis_II/NN-Lund/C++/potts_spin/build/CMakeFiles/rebuild_cache.dir
+/home/jendav/Thesis/Thesis_II/NN-Lund/C++/potts_spin/build/CMakeFiles/edit_cache.dir
+/home/jendav/Thesis/Thesis_II/NN-Lund/C++/potts_spin/build/CMakeFiles/potts_spin.dir
