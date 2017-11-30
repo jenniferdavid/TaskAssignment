@@ -66,10 +66,8 @@ double kT_stop  = 0.001;
 double kT_swfac = 0.95;
 double kT_fac = exp( log(kT_swfac) / (nVehicles * nDim) ); // lower T after every neuron update
 double kT = kT_start * kT_fac;  // * to give the ini conf a own datapoint in sat plot
-double Elocal, E_loop, E_assign;
 double initial_Elocal, initial_Eloop, initial_Eassign;
 double Pji_coeff = 0.001;
-double sumv;
 static const double small = 1e-15;
 static const double onemsmall = 1 - small;
 static const double lk0 = 1/small - 1; 
@@ -77,6 +75,11 @@ double lk;
   
 //////////////////////////////////////////////////
 
+Eigen::MatrixXd Elocal = MatrixXd::Zero(rDim,rDim);
+Eigen::MatrixXd Eassign = MatrixXd::Zero(rDim,rDim);
+Eigen::MatrixXd Eloop = MatrixXd::Zero(rDim,rDim);
+
+Eigen::MatrixXd Energy_Matrix = MatrixXd::Zero(rDim,rDim);
 Eigen::MatrixXd VMatrix = MatrixXd::Zero(nDim,nDim);
 Eigen::MatrixXd Core_Matrix = MatrixXd::Zero(rDim,rDim);
 Eigen::MatrixXd PCore_Matrix = MatrixXd::Zero(rDim,rDim);
@@ -108,6 +111,7 @@ class neural
   
   void getVMatrix ()
   {
+      
         cout << "\n No. of Vehicles: " << nVehicles << endl;
         cout << "\n No. of Tasks: " << nTasks << endl;
         cout << "\n Dimension of VMatrix is: " << nDim << endl;
@@ -158,27 +162,15 @@ class neural
      // initial_Eloop = 
      // initial_Eassign = 
      // initial_Elocal = initial_Eassign + initial_Eloop;
-
+      
       initial_Eassign = initial_Eloop;
       
   }
-  //////////////////////////////////////////////////////////////////////
-  void displaySolution() const
-  {
-  
-      
-  }
   ///////////////////////////////////////////////////////////////////////
-  //double Elocal()
-    //{
-    
-        
-  //  }
-    
-  ///////////////////////////////////////////////////////////////////////
-  void NN_algo() const
+  void NN_algo() 
   {    
          int FLAG = 1;
+         double value;
          cout << "\n ///////////////////////////////////////////// " << endl;
          
          cout << "\n Initial VMatrix is: \n" << Core_Matrix << endl;
@@ -187,16 +179,22 @@ class neural
          cout << "\n Elocal is: " << initial_Elocal << endl;
         
          cout << "\n ///////////////////////////////////////////// " << endl;
-         
+
          while (FLAG)
          // update v, d and P
          {	
             cout << "\n kT is " << kT << endl;
-            double arg = (Elocal/kT);
-            cout << "\n arg value is: " << arg << endl;
-            cout << "\n exp(arg) value is: " << exp(arg) << endl;
             cout << "\n Core VMatrix is \n" << Core_Matrix << endl;
     
+                for (int i = 0; i < rDim; i++)
+                {
+                    for (int j=0; j< rDim; j++)
+                    {
+                       // Eassign(i,j) = 0.5 * ();
+                        Elocal(i,j) = Eassign(i,j);
+                    }  
+                }
+                            
             //updating VMatrix
             for (int i = 0; i < rDim; i++)
                 {
@@ -205,18 +203,19 @@ class neural
                         if (Core_Matrix(i,j) == 0)
                             Core_Matrix(i,j) = 0;
                         else
-                            Core_Matrix(i,j) = exp(arg);
+                            Energy_Matrix(i,j) = Elocal(i,j);
+                            value = Energy_Matrix(i,j) / kT;
+                            Core_Matrix(i,j) = exp(value);
                     }  
                 }
                 
-            cout << "sumv is: " << sumv << endl;
-            cout << "\n VMatrix with sumv is: \n" << Core_Matrix << endl;
-
-             for (int i = 0; i < rDim; i++)
+            Eigen::VectorXd sumv;         
+            sumv = Core_Matrix.rowwise().sum();
+            for (int i = 0; i < rDim; i++)
                 {                    
                     for (int j=0; j< rDim; j++)
                     {
-                        Core_Matrix(i,j) /= sumv;
+                        Core_Matrix(i,j) /= sumv(i);
                     }  
                 }   
                 
@@ -227,7 +226,7 @@ class neural
             //Normalising rows of VMatrix
             Eigen::VectorXd sum1; 
             sum1 = Core_Matrix.rowwise().sum();
-            cout << "\n row sum is " << sum1(0) << endl;
+            cout << "\n row sum is " << sum1 << endl;
 
             for (int i = 0; i < rDim; i++)
                 {
@@ -236,7 +235,7 @@ class neural
                         Core_Matrix(i,j) = Core_Matrix(i,j)/sum1(j);
                     }
                 }
-                
+    
             cout << "\n Row Normalised Core VMatrix is \n" << Core_Matrix << endl;
 
             
@@ -245,7 +244,7 @@ class neural
             //Normalising columns of VMatrix
             Eigen::VectorXd sum2; 
             sum2 = Core_Matrix.colwise().sum();
-            cout << "\n col sum is " << sum2(0) << endl;
+            cout << "\n col sum is " << sum2 << endl;
 
             for (int i = 0; i < rDim; i++)
                 {
@@ -254,7 +253,6 @@ class neural
                         Core_Matrix(i,j) = Core_Matrix(i,j)/sum2(i);
                     }
                 }
-
             cout << "\n Col Normalised Core VMatrix is \n" << Core_Matrix << endl;
     
 /////////////////////////////////////////////////////////////////////////
@@ -302,19 +300,27 @@ class neural
             cout << "\n valVec is: \n" << valVec << endl;
             cout << "\n The maximum of the running times which should be minimized is: " << valVec.maxCoeff() << endl;
             
-            //Updating the Energy function
+            //Computing derviatives of L and R
+            
+            //Computing the Energy function
             double maxleftVec, maxrightVec;
             maxleftVec = leftVec.maxCoeff();
             maxrightVec = rightVec.maxCoeff();
             
-            E_assign = 0.5*(maxleftVec + maxrightVec);
-            cout << "E_assign is:" << E_assign << endl;
+            for (int i = 0; i < rDim; i++)
+                {
+                    for (int j=0; j< rDim; j++)
+                    {
+                        Eassign(i,j) = 0.5 * ();
+                    }
+                }
             
-           // E_loop(); 
-           // Elocal = E_assign + Pji_coeff * E_loop;
+           // Eassign = 0.5*(maxleftVec + maxrightVec);
             
-            Elocal = E_assign;
-            cout << "E_local is:" << Elocal << endl;
+            cout << "Eassign is:" << Eassign << endl;
+            
+            Elocal = Eassign;
+            cout << "Elocal is:" << Elocal << endl;
 
             kT *= kT_fac;
                 cout << "\n new kT is: " << kT << endl;
@@ -324,7 +330,6 @@ class neural
             FLAG = 0;
             }
   }
-  
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -391,6 +396,6 @@ int main(int argc,char *argv[])
     nn.initial_energy(); //initial update
     nn.NN_algo();    //NN_algo - updating equations
     cout << "\n Annealing done \n" << endl;
-    nn.displaySolution();//Printing out the solutions
+   // nn.displaySolution();//Printing out the solutions
     printf("Total time taken: %.2fs\n", (double)(clock() - tStart)/CLOCKS_PER_SEC);
 }
